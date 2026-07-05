@@ -133,6 +133,27 @@ app.patch("/api/products/:id", async (req, res) => {
   }
 });
 
+
+// delete product data
+app.delete("/api/products/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await productCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+
+    res.send(result);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to delete product",
+    });
+  }
+});
+
   
 
 
