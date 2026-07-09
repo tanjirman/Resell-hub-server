@@ -85,7 +85,7 @@ async function run() {
       sellerEmail,
 
       createdAt: new Date(),
-      status: "available",
+      status: "pending",
     };
 
     const result = await productCollection.insertOne(product);
