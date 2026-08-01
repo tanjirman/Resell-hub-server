@@ -31,6 +31,8 @@ async function run() {
     const db = client.db("Resell-Hub");
     const productCollection = db.collection("products");
     const orderCollection = db.collection("orders");
+    const wishlistCollection = db.collection("wishlist");
+
 
     app.get("/api/products/seller/:email", async (req, res) => {
       try {
@@ -48,6 +50,7 @@ async function run() {
           message: "Something went wrong",
         });
       }
+      
     });
 
     // products page
@@ -190,9 +193,9 @@ app.get("/api/products/:id", async (req, res) => {
       }
     });
 
-    // =========================
+    
 // Create Order
-// =========================
+
 app.post("/api/orders", async (req, res) => {
   try {
     const {
@@ -402,6 +405,151 @@ app.patch("/api/orders/cancel/:id", async (req, res) => {
     res.status(500).send({
       success: false,
       message: "Failed to cancel order",
+    });
+  }
+});
+
+// product wishlist
+app.post("/api/wishlist", async (req, res) => {
+  try {
+    const {
+      buyerId,
+      buyerName,
+      buyerEmail,
+      productId,
+    } = req.body;
+
+    if (!buyerEmail || !productId) {
+      return res.status(400).send({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
+
+    if (!ObjectId.isValid(productId)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid Product ID",
+      });
+    }
+
+    const product = await productCollection.findOne({
+      _id: new ObjectId(productId),
+    });
+
+    if (!product) {
+      return res.status(404).send({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const alreadyExists = await wishlistCollection.findOne({
+      buyerEmail,
+      productId,
+    });
+
+    if (alreadyExists) {
+      return res.send({
+        success: false,
+        message: "Product already in wishlist",
+      });
+    }
+
+    const wishlist = {
+      buyerId,
+      buyerName,
+      buyerEmail,
+
+      productId: product._id.toString(),
+
+      productTitle: product.title,
+      productImage: product.image,
+
+      category: product.category,
+      condition: product.condition,
+
+      price: product.price,
+
+      sellerId: product.sellerId,
+      sellerName: product.sellerName,
+      sellerEmail: product.sellerEmail,
+
+      createdAt: new Date(),
+    };
+    
+
+    const result = await wishlistCollection.insertOne(wishlist);
+
+    res.send({
+      success: true,
+      insertedId: result.insertedId,
+    });
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to add wishlist",
+    });
+  }
+});
+
+
+// buyer's wishlist
+app.get("/api/wishlist/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const wishlist = await wishlistCollection
+      .find({
+        buyerEmail: email,
+      })
+      .sort({
+        createdAt: -1,
+      })
+      .toArray();
+
+    res.send(wishlist);
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch wishlist",
+    });
+  }
+});
+
+// Remove Wishlist Item
+app.delete("/api/wishlist/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid wishlist id",
+      });
+    }
+
+    const result = await wishlistCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+
+    res.send({
+      success: true,
+      deletedCount: result.deletedCount,
+    });
+
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to remove wishlist item",
     });
   }
 });
