@@ -32,6 +32,7 @@ async function run() {
     const productCollection = db.collection("products");
     const orderCollection = db.collection("orders");
     const wishlistCollection = db.collection("wishlist");
+    const userCollection = db.collection("user");
 
 
     app.get("/api/products/seller/:email", async (req, res) => {
@@ -405,6 +406,72 @@ app.patch("/api/orders/cancel/:id", async (req, res) => {
     res.status(500).send({
       success: false,
       message: "Failed to cancel order",
+    });
+  }
+});
+
+// get user profile
+
+app.get("/api/profile/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const user = await userCollection.findOne({ email });
+
+    if (!user) {
+      return res.status(404).send({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.send(user);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch profile",
+    });
+  }
+});
+
+// update profile
+app.patch("/api/profile/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { name, image } = req.body;
+
+    const result = await userCollection.updateOne(
+      { email },
+      {
+        $set: {
+          name,
+          image,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const updatedUser = await userCollection.findOne({ email });
+
+    res.send({
+      success: true,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to update profile",
     });
   }
 });
