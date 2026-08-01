@@ -30,6 +30,7 @@ async function run() {
 
     const db = client.db("Resell-Hub");
     const productCollection = db.collection("products");
+    const orderCollection = db.collection("orders");
 
     app.get("/api/products/seller/:email", async (req, res) => {
       try {
@@ -188,6 +189,222 @@ app.get("/api/products/:id", async (req, res) => {
         });
       }
     });
+
+    // =========================
+// Create Order
+// =========================
+app.post("/api/orders", async (req, res) => {
+  try {
+    const {
+      buyerId,
+      buyerName,
+      buyerEmail,
+      sellerId,
+      sellerName,
+      sellerEmail,
+      productId,
+      quantity = 1,
+    } = req.body;
+
+    const product = await productCollection.findOne({
+      _id: new ObjectId(productId),
+    });
+
+    if (!product) {
+      return res.status(404).send({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    if (product.quantity < quantity) {
+      return res.status(400).send({
+        success: false,
+        message: "Product out of stock",
+      });
+    }
+
+    const order = {
+      buyerId,
+      buyerName,
+      buyerEmail,
+
+      sellerId,
+      sellerName,
+      sellerEmail,
+
+      productId: product._id,
+
+      productTitle: product.title,
+      productImage: product.image,
+
+      quantity: Number(quantity),
+
+      unitPrice: product.price,
+      totalPrice: product.price * Number(quantity),
+
+      status: "Pending",
+      paymentStatus: "Pending",
+
+      createdAt: new Date(),
+    };
+
+    const result = await orderCollection.insertOne(order);
+
+    await productCollection.updateOne(
+      { _id: product._id },
+      {
+        $inc: {
+          quantity: -Number(quantity),
+        },
+      }
+    );
+
+    res.send({
+      success: true,
+      insertedId: result.insertedId,
+      order,
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to create order",
+    });
+  }
+});
+
+app.get("/api/orders/buyer/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const orders = await orderCollection
+      .find({
+        buyerEmail: email,
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(orders);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch buyer orders",
+    });
+  }
+});
+
+app.get("/api/orders/seller/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const orders = await orderCollection
+      .find({
+        sellerEmail: email,
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(orders);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch seller orders",
+    });
+  }
+});
+
+app.patch("/api/orders/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const result = await orderCollection.updateOne(
+      {
+        _id: new ObjectId(id),
+      },
+      {
+        $set: {
+          status,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    res.send(result);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to update order",
+    });
+  }
+});
+
+app.patch("/api/orders/cancel/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await orderCollection.findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!order) {
+      return res.status(404).send({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.status !== "Pending") {
+      return res.status(400).send({
+        success: false,
+        message: "Only pending orders can be cancelled",
+      });
+    }
+
+    await orderCollection.updateOne(
+      {
+        _id: new ObjectId(id),
+      },
+      {
+        $set: {
+          status: "Cancelled",
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    await productCollection.updateOne(
+      {
+        _id: new ObjectId(order.productId),
+      },
+      {
+        $inc: {
+          quantity: order.quantity,
+        },
+      }
+    );
+
+    res.send({
+      success: true,
+      message: "Order cancelled",
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to cancel order",
+    });
+  }
+});
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
