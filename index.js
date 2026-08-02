@@ -33,6 +33,7 @@ async function run() {
     const orderCollection = db.collection("orders");
     const wishlistCollection = db.collection("wishlist");
     const userCollection = db.collection("user");
+    const paymentCollection = db.collection("payments");
 
 
     app.get("/api/products/seller/:email", async (req, res) => {
@@ -617,6 +618,137 @@ app.delete("/api/wishlist/:id", async (req, res) => {
     res.status(500).send({
       success: false,
       message: "Failed to remove wishlist item",
+    });
+  }
+});
+
+// Save Payment
+
+app.post("/api/payments", async (req, res) => {
+  try {
+    const {
+      orderId,
+      buyerId,
+      buyerEmail,
+      transactionId,
+      amount,
+      paymentMethod,
+      paymentStatus,
+    } = req.body;
+
+    const payment = {
+      orderId,
+      buyerId,
+      buyerEmail,
+      transactionId,
+      amount: Number(amount),
+
+      paymentMethod: paymentMethod || "Card",
+      paymentStatus: paymentStatus || "Paid",
+
+      paymentDate: new Date(),
+    };
+
+    const result = await paymentCollection.insertOne(payment);
+
+    // Update order payment status
+
+    await orderCollection.updateOne(
+      {
+        _id: new ObjectId(orderId),
+      },
+      {
+        $set: {
+          paymentStatus: "Paid",
+          status: "Confirmed",
+          transactionId,
+        },
+      }
+    );
+
+    res.send({
+      success: true,
+      insertedId: result.insertedId,
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to save payment",
+    });
+  }
+});
+
+// Payment History
+
+app.get("/api/payments/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const payments = await paymentCollection
+      .find({
+        buyerEmail: email,
+      })
+      .sort({
+        paymentDate: -1,
+      })
+      .toArray();
+
+    res.send(payments);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch payments",
+    });
+  }
+});
+
+// All Payments
+
+app.get("/api/payments", async (req, res) => {
+  try {
+    const payments = await paymentCollection
+      .find()
+      .sort({
+        paymentDate: -1,
+      })
+      .toArray();
+
+    res.send(payments);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch payments",
+    });
+  }
+});
+
+// get  single payment
+app.get("/api/payment/:id", async (req, res) => {
+  try {
+    const payment = await paymentCollection.findOne({
+      _id: new ObjectId(req.params.id),
+    });
+
+    if (!payment) {
+      return res.status(404).send({
+        success: false,
+        message: "Payment not found",
+      });
+    }
+
+    res.send(payment);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Server Error",
     });
   }
 });
