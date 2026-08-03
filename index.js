@@ -984,6 +984,51 @@ app.delete("/api/admin/products/:id", async (req, res) => {
   }
 });
 
+// manage order
+app.get("/api/admin/orders", async (req, res) => {
+  try {
+    const orders = await orderCollection
+      .find()
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(orders);
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch orders",
+    });
+  }
+});
+
+app.patch("/api/admin/orders/:id", async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    await orderCollection.updateOne(
+      {
+        _id: new ObjectId(req.params.id),
+      },
+      {
+        $set: {
+          status,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    res.send({
+      success: true,
+      message: "Order updated",
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed",
+    });
+  }
+});
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
