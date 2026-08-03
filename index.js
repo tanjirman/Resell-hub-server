@@ -811,6 +811,90 @@ app.get("/api/admin/dashboard", async (req, res) => {
   }
 });
 
+// manage user
+app.get("/api/admin/users", async (req, res) => {
+  try {
+    const users = await userCollection
+      .find()
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(users);
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch users",
+    });
+  }
+});
+// get user
+app.get("/api/users", async (req, res) => {
+  try {
+    const users = await userCollection
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(users);
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch users",
+    });
+  }
+});
+
+// Block / Unblock User
+app.patch("/api/admin/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isBlocked } = req.body;
+
+    const result = await userCollection.updateOne(
+      {
+        _id: new ObjectId(id),
+      },
+      {
+        $set: {
+          isBlocked,
+        },
+      }
+    );
+
+    res.send({
+      success: true,
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to update user",
+    });
+  }
+});
+// delete user
+app.delete("/api/admin/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await userCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+
+    res.send({
+      success: true,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to delete user",
+    });
+  }
+});
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
