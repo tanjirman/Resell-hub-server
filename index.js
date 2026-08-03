@@ -753,6 +753,64 @@ app.get("/api/payment/:id", async (req, res) => {
   }
 });
 
+// Admin dashboard
+// ================= Dashboard Overview =================
+
+app.get("/api/admin/dashboard", async (req, res) => {
+  try {
+    const totalUsers = await userCollection.countDocuments();
+
+    const totalProducts = await productCollection.countDocuments();
+
+    const totalOrders = await orderCollection.countDocuments();
+
+    const totalPayments = await paymentCollection.countDocuments();
+
+    const totalRevenueResult = await paymentCollection
+      .aggregate([
+        {
+          $group: {
+            _id: null,
+            revenue: {
+              $sum: "$amount",
+            },
+          },
+        },
+      ])
+      .toArray();
+
+    const totalRevenue =
+      totalRevenueResult.length > 0
+        ? totalRevenueResult[0].revenue
+        : 0;
+
+    const recentOrders = await orderCollection
+      .find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .toArray();
+
+    res.send({
+      success: true,
+
+      totalUsers,
+      totalProducts,
+      totalOrders,
+      totalPayments,
+      totalRevenue,
+
+      recentOrders,
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to load dashboard",
+    });
+  }
+});
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
