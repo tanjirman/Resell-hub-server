@@ -895,6 +895,95 @@ app.delete("/api/admin/users/:id", async (req, res) => {
   }
 });
 
+// manage product
+app.get("/api/admin/products", async (req, res) => {
+  try {
+    const products = await productCollection
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(products);
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch products",
+    });
+  }
+});
+
+app.patch("/api/admin/products/:id/approve", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await productCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          status: "approved",
+          approvedAt: new Date(),
+        },
+      }
+    );
+
+    res.send({
+      success: true,
+      message: "Product approved",
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to approve product",
+    });
+  }
+});
+
+app.patch("/api/admin/products/:id/reject", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await productCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          status: "rejected",
+          rejectedAt: new Date(),
+        },
+      }
+    );
+
+    res.send({
+      success: true,
+      message: "Product rejected",
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to reject product",
+    });
+  }
+});
+
+app.delete("/api/admin/products/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await productCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+
+    res.send({
+      success: true,
+      message: "Product deleted",
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Failed to delete product",
+    });
+  }
+});
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
